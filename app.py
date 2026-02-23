@@ -131,28 +131,39 @@ with col_bot3:
     fig_don3.update_layout(showlegend=False, margin=dict(l=10, r=10, t=10, b=10))
     st.plotly_chart(fig_don3, use_container_width=True)
 
-# 7. NEW SECTION: Detail Table (The Requested Update)
-st.write("---")
-st.subheader("📋 Detailed Transaction Summary")
+# 8. Detailed Summary Table & Download
+    st.divider()
+    st.subheader("📋 Detailed Summary")
 
-# Grouping data untuk tabel agar rapi
-table_data = filtered_df.groupby(['BRANCH_DESC', 'COB_DESC', 'TOC_DESCRIPTION']).agg({
-    'TSI_OC': 'sum',
-    'PREMIUM_GROSS': 'sum',
-    'DISCOUNT': 'sum'
-}).reset_index()
+    # Pastikan kolom-kolom ini ada sebelum dikelompokkan
+    group_cols = [c for c in ['BRANCH_DESC', 'COB_DESC', 'TOC_DESCRIPTION'] if c in filtered_df.columns]
+    value_cols = [v for v in ['TSI_OC', 'PREMIUM_GROSS', 'DISCOUNT'] if v in filtered_df.columns]
 
-# Format tabel dengan style agar angka mudah dibaca
-st.dataframe(
-    table_data.style.format({
-        'TSI_OC': '{:,.2f}',
-        'PREMIUM_GROSS': '{:,.2f}',
-        'DISCOUNT': '{:,.2f}'
-    }),
-    use_container_width=True,
-    hide_index=True
+    if group_cols:
+        table_data = filtered_df.groupby(group_cols)[value_cols].sum().reset_index()
+        
+        # Cara format yang lebih aman: hanya memformat kolom yang benar-benar ada dan bertipe angka
+        format_dict = {}
+        for col in value_cols:
+            if col in table_data.columns:
+                format_dict[col] = "{:,.0f}"
 
-)
+        # Tampilkan DataFrame
+        st.dataframe(
+            table_data.style.format(format_dict), 
+            use_container_width=True, 
+            hide_index=True
+        )
 
-
-
+        # Tombol Download
+        buffer = io.BytesIO()
+        with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
+            table_data.to_excel(writer, index=False)
+        st.download_button(
+            label="📥 Download Data Excel", 
+            data=buffer.getvalue(), 
+            file_name="videi_report.xlsx", 
+            mime="application/vnd.ms-excel"
+        )
+    else:
+        st.warning("Kolom deskripsi tidak ditemukan untuk membuat tabel summary.")
