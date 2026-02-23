@@ -36,7 +36,7 @@ st.markdown("""
 def load_data():
     # Mengacu pada file yang diupload
     #df = pd.read_excel('lap_on_risk_28_feb_26.XLS')
-    df = pd.read_csv('lap_on_risk_28_feb_26.XLS - Page_1.csv')
+    df = pd.read_csv('lap_on_risk_28_feb_26.XLS.csv')
     # Membersihkan data numerik jika perlu
     cols_to_fix = ['TSI_OC', 'PREMIUM_GROSS']
     for col in cols_to_fix:
@@ -152,3 +152,4 @@ st.dataframe(
     hide_index=True
 
 )
+
