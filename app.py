@@ -6,7 +6,7 @@ import plotly.graph_objects as go
 # 1. Konfigurasi Halaman
 st.set_page_config(page_title="VibeCheck Insurance Dashboard", layout="wide")
 
-# Custom CSS untuk tampilan Modern & Gen-Z (Rounded corners, Soft shadows)
+# Custom CSS untuk tampilan Modern & Gen-Z
 st.markdown("""
     <style>
     .main {
@@ -34,20 +34,24 @@ st.markdown("""
 # 2. Load Data
 @st.cache_data
 def load_data():
-    # Mengacu pada file yang diupload
-    #df = pd.read_excel('lap_on_risk_28_feb_26.XLS')
-    df = pd.read_csv('lap_on_risk_28_feb_26.csv')
-    df.columns = df.columns.str.strip().str.upper()
-    # Membersihkan data numerik jika perlu
-    cols_to_fix = ['TSI_OC', 'PREMIUM_GROSS']
+    # Pastikan file name sesuai dengan yang ada di repositori GitHub Anda
+    try:
+        df = pd.read_excel('lap_on_risk_28_feb_26.XLS')
+    except Exception:
+        # Fallback jika file Excel gagal dibaca atau menggunakan CSV hasil konversi
+        df = pd.read_csv('lap_on_risk_28_feb_26.csv')
+    
+    # List kolom yang harus berupa angka
+    cols_to_fix = ['TSI_OC', 'PREMIUM_GROSS', 'DISCOUNT']
     for col in cols_to_fix:
         if col in df.columns:
+            # Ubah ke numerik, jika error (seperti teks) ubah jadi NaN lalu isi dengan 0
             df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
     return df
 
 df = load_data()
 
-# 3. Sidebar Filter (Drill-down)
+# 3. Sidebar Filter
 st.sidebar.header("🎛️ Dashboard Filters")
 selected_cob = st.sidebar.multiselect("Select COB:", options=df['COB_DESC'].unique(), default=df['COB_DESC'].unique())
 selected_segment = st.sidebar.multiselect("Select Segment:", options=df['SEGMENT'].unique(), default=df['SEGMENT'].unique())
@@ -81,11 +85,11 @@ with col3:
 
 st.write("")
 
-# 6. MIDDLE ROW: Grafik Bar & Analisis Trafik
+# 6. MIDDLE ROW: Grafik Bar & Analisis
 col_mid1, col_mid2 = st.columns([1, 1.5])
 
 with col_mid1:
-    st.subheader("On Risk by Branch (per 100k)")
+    st.subheader("On Risk by Branch")
     branch_data = filtered_df.groupby('BRANCH_DESC')['PREMIUM_GROSS'].sum().reset_index()
     fig_branch = px.bar(branch_data, x='BRANCH_DESC', y='PREMIUM_GROSS', 
                         color_discrete_sequence=['#636EFA'],
@@ -102,9 +106,9 @@ with col_mid2:
     fig_cob.update_layout(barmode='group', template="plotly_white", margin=dict(l=20, r=20, t=20, b=20))
     st.plotly_chart(fig_cob, use_container_width=True)
 
-# 7. BOTTOM ROW: Analisis Konversi (Donut Charts)
+# 7. BOTTOM ROW: Analisis Donut
 st.write("---")
-st.subheader("Conversion Analysis")
+st.subheader("Portfolio Distribution")
 col_bot1, col_bot2, col_bot3 = st.columns(3)
 
 with col_bot1:
@@ -131,39 +135,27 @@ with col_bot3:
     fig_don3.update_layout(showlegend=False, margin=dict(l=10, r=10, t=10, b=10))
     st.plotly_chart(fig_don3, use_container_width=True)
 
-# 8. Detailed Summary Table & Download
-    st.divider()
-    st.subheader("📋 Detailed Summary")
+# 8. DETAIL TABLE (FIXED AREA)
+st.write("---")
+st.subheader("📋 Detailed Transaction Summary")
 
-    # Pastikan kolom-kolom ini ada sebelum dikelompokkan
-    group_cols = [c for c in ['BRANCH_DESC', 'COB_DESC', 'TOC_DESCRIPTION'] if c in filtered_df.columns]
-    value_cols = [v for v in ['TSI_OC', 'PREMIUM_GROSS', 'DISCOUNT'] if v in filtered_df.columns]
+# Grouping data
+table_data = filtered_df.groupby(['BRANCH_DESC', 'COB_DESC', 'TOC_DESCRIPTION']).agg({
+    'TSI_OC': 'sum',
+    'PREMIUM_GROSS': 'sum',
+    'DISCOUNT': 'sum'
+}).reset_index()
 
-    if group_cols:
-        table_data = filtered_df.groupby(group_cols)[value_cols].sum().reset_index()
-        
-        # Cara format yang lebih aman: hanya memformat kolom yang benar-benar ada dan bertipe angka
-        format_dict = {}
-        for col in value_cols:
-            if col in table_data.columns:
-                format_dict[col] = "{:,.0f}"
+# Proteksi terakhir: Isi nilai kosong dengan 0 sebelum masuk ke styler
+table_data = table_data.fillna(0)
 
-        # Tampilkan DataFrame
-        st.dataframe(
-            table_data.style.format(format_dict), 
-            use_container_width=True, 
-            hide_index=True
-        )
-
-        # Tombol Download
-        buffer = io.BytesIO()
-        with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
-            table_data.to_excel(writer, index=False)
-        st.download_button(
-            label="📥 Download Data Excel", 
-            data=buffer.getvalue(), 
-            file_name="videi_report.xlsx", 
-            mime="application/vnd.ms-excel"
-        )
-    else:
-        st.warning("Kolom deskripsi tidak ditemukan untuk membuat tabel summary.")
+# Format tabel
+st.dataframe(
+    table_data.style.format({
+        'TSI_OC': '{:,.2f}',
+        'PREMIUM_GROSS': '{:,.2f}',
+        'DISCOUNT': '{:,.2f}'
+    }, na_rep='0.00'),
+    use_container_width=True,
+    hide_index=True
+)
