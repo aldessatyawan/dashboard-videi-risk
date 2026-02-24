@@ -7,10 +7,12 @@ import numpy as np
 # 1. Konfigurasi Halaman
 st.set_page_config(page_title="VibeCheck Insurance Dashboard", layout="wide")
 
-# Custom CSS untuk tampilan Modern & Gen-Z
+# Custom CSS untuk tampilan Modern & Perbaikan Ukuran Font Metrik
 st.markdown("""
     <style>
     .main { background-color: #f8f9fa; }
+    
+    /* Style untuk Box Metrik */
     div[data-testid="stMetric"] {
         background-color: #ffffff;
         border-radius: 15px;
@@ -18,6 +20,13 @@ st.markdown("""
         box-shadow: 0 4px 12px rgba(0,0,0,0.05);
         border: 1px solid #f0f0f0;
     }
+    
+    /* MENGECILKAN UKURAN ANGKA METRIK */
+    /* Target angka pada metrik agar tidak terpotong */
+    div[data-testid="stMetricValue"] > div {
+        font-size: 24px !important; /* Ukuran default biasanya ~32px, kita turunkan ke 24px */
+    }
+    
     .stPlotlyChart { 
         background-color: #ffffff; 
         border-radius: 15px;
@@ -31,31 +40,26 @@ st.markdown("""
 @st.cache_data
 def load_data():
     try:
-        # Membaca Excel (mendukung format .XLS lama maupun baru)
         df = pd.read_excel('lap_on_risk_28_feb_26.XLS')
     except:
-        # Fallback ke CSV jika file Excel tidak terbaca
         df = pd.read_csv('lap_on_risk_28_feb_26.csv')
     
-    # Bersihkan nama kolom dari spasi yang tidak terlihat
     df.columns = [str(c).strip() for c in df.columns]
     
-    # Konversi kolom numerik krusial
     cols_to_fix = ['TSI_OC', 'PREMIUM_GROSS', 'DISCOUNT']
     for col in cols_to_fix:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
         else:
-            df[col] = 0.0 # Buat kolom dummy jika tidak ada agar kode tidak pecah
+            df[col] = 0.0
             
     return df
 
 df = load_data()
 
-# 3. Sidebar Filter (Drill-down)
+# 3. Sidebar Filter
 st.sidebar.header("🎛️ Dashboard Filters")
 
-# Ambil list unik dengan proteksi jika kolom tidak ditemukan
 def get_unique(col_name):
     return df[col_name].unique() if col_name in df.columns else []
 
@@ -67,7 +71,7 @@ selected_cob = st.sidebar.multiselect("Select COB:", options=list_cob, default=l
 selected_segment = st.sidebar.multiselect("Select Segment:", options=list_seg, default=list_seg)
 selected_branch = st.sidebar.multiselect("Select Branch:", options=list_branch, default=list_branch)
 
-# Filter data berdasarkan input
+# Filter data
 mask = (
     (df['COB_DESC'].isin(selected_cob)) &
     (df['SEGMENT'].isin(selected_segment)) &
@@ -80,10 +84,9 @@ st.title("Videi Insurance: On Risk Dashboard")
 st.markdown("Real-time portfolio monitoring.")
 st.write("---")
 
-# 5. TOP ROW: Metrik Utama
+# 5. TOP ROW: Metrik Utama (Font sudah diperkecil via CSS di atas)
 col1, col2, col3 = st.columns(3)
 
-# Menggunakan BRANCH_DESC karena BRANCH seringkali tidak ada di beberapa format export
 total_branch = filtered_df[filtered_df['PREMIUM_GROSS'] > 0]['BRANCH_DESC'].nunique() if 'BRANCH_DESC' in filtered_df.columns else 0
 total_tsi = filtered_df['TSI_OC'].sum()
 total_premium = filtered_df['PREMIUM_GROSS'].sum()
@@ -97,7 +100,7 @@ with col3:
 
 st.write("")
 
-# 6. MIDDLE ROW: Grafik Bar & Analisis Utama
+# 6. MIDDLE ROW: Grafik Bar & Analisis
 col_mid1, col_mid2 = st.columns([1, 1.5])
 
 with col_mid1:
@@ -118,7 +121,7 @@ with col_mid2:
     fig_cob.update_layout(barmode='group', template="plotly_white", margin=dict(l=20, r=20, t=20, b=20))
     st.plotly_chart(fig_cob, use_container_width=True)
 
-# 7. BOTTOM ROW: Analisis Donut (DIKEMBALIKAN)
+# 7. BOTTOM ROW: Analisis Donut
 st.write("---")
 st.subheader("Portfolio Distribution")
 col_bot1, col_bot2, col_bot3 = st.columns(3)
@@ -147,16 +150,12 @@ with col_bot3:
                           color_discrete_sequence=px.colors.qualitative.Prism)
         fig_don3.update_layout(showlegend=False, margin=dict(l=10, r=10, t=10, b=10))
         st.plotly_chart(fig_don3, use_container_width=True)
-    else:
-        st.info("Kolom TOC_DESCRIPTION tidak ditemukan.")
 
-# 8. DETAIL TABLE DENGAN RASIO DISKON
+# 8. DETAIL TABLE DENGAN RASIO
 st.write("---")
 st.subheader("📋 Detailed Transaction Summary")
 
-# Grouping data untuk tabel
 group_cols = ['BRANCH_DESC', 'COB_DESC', 'TOC_DESCRIPTION']
-# Pastikan kolom tersedia sebelum grouping
 existing_group_cols = [c for c in group_cols if c in filtered_df.columns]
 
 table_data = filtered_df.groupby(existing_group_cols).agg({
@@ -165,17 +164,14 @@ table_data = filtered_df.groupby(existing_group_cols).agg({
     'DISCOUNT': 'sum'
 }).reset_index()
 
-# Hitung Rasio Diskon (%) dengan penanganan pembagian nol
 table_data['Disc_Ratio'] = np.where(
     table_data['PREMIUM_GROSS'] != 0, 
     (table_data['DISCOUNT'] / table_data['PREMIUM_GROSS']) * 100, 
     0
 )
 
-# Proteksi terakhir terhadap NaN
 table_data = table_data.fillna(0)
 
-# Tampilkan Tabel
 st.dataframe(
     table_data.style.format({
         'TSI_OC': '{:,.2f}',
