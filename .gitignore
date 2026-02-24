@@ -1,0 +1,35 @@
+Gitignore Python dan Data
+.gitignore untuk Python & Data (CSV/Excel)
+
+Python cache & environment
+
+pycache/
+*.py[cod]
+*$py.class
+venv/
+env/
+.env
+
+Data files (Cegah upload dataset)
+
+*.csv
+*.xlsx
+*.xls
+*.json
+*.sql
+*.sqlite3
+
+Folder data khusus
+
+data/
+datasets/
+raw_data/
+
+Jupyter Notebook checkpoints
+
+.ipynb_checkpoints/
+
+System files
+
+.DS_Store
+Thumbs.db
